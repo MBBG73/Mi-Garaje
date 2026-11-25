@@ -1,0 +1,11 @@
+{
+  "name": "mi-garaje",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mi Garaje - Gestión de Vehículos (app Android con Capacitor)",
+  "scripts": {
+    "sync": "npx cap sync android",
+    "open": "npx cap open android",
+    "apk": "npx cap sync android && cd android && ./gradlew assembleDebug"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "appId": "com.migaraje.app",
+  "appName": "Mi Garaje",
+  "webDir": "www",
+  "server": { "androidScheme": "https" },
+  "android": { "backgroundColor": "#0f172a" },
+  "plugins": {
+    "LocalNotifications": { "iconColor": "#2563EB" }
+  }
+}
