@@ -15,11 +15,10 @@ jobs:
       - name: Instalar Capacitor
         run: |
           npm install @capacitor/core @capacitor/android @capacitor/local-notifications @capacitor/filesystem @capacitor/share
-          npm install -D @capacitor/cli @capacitor/assets
+          npm install -D @capacitor/cli
       - name: Generar proyecto Android
         run: |
           npx cap add android
-          npx capacitor-assets generate--android
           npx cap sync android
       - name: Compilar APK
         working-directory: android
