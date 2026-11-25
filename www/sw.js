@@ -1,10 +1,12 @@
-const CACHE_NAME = 'mi-garaje-v12-android';
+const CACHE_NAME = 'mi-garaje-v13';
 const ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icon-192.png',
-  '/icon-512.png'
+  '/icon-512.png',
+  '/icon-maskable-192.png',
+  '/icon-maskable-512.png'
 ];
 
 self.addEventListener('install', (event) => {
