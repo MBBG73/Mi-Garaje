@@ -146,6 +146,14 @@
       border: none; border-radius: 999px; padding: 14px 20px; font-weight: 700; font-size: 0.95rem;
       box-shadow: 0 6px 18px rgba(37, 99, 235, 0.4); cursor: pointer; z-index: 30;
     }
+    .reminder-banner { display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:12px; padding:10px 12px; margin-bottom:12px; font-size:.88rem; font-weight:700; }
+    .sect-box { margin-top:14px; border-top:1px solid var(--border); padding-top:12px; }
+    .sect-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px; }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+    .chip { background:#eff6ff; color:#1e40af; border-radius:999px; padding:4px 10px; font-size:.78rem; font-weight:800; }
+    .fuel-row, .doc-row { display:flex; justify-content:space-between; align-items:center; gap:8px; background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:8px 10px; margin-bottom:6px; font-size:.84rem; }
+    .doc-thumb { width:44px; height:44px; border-radius:8px; object-fit:cover; background:#e2e8f0; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex:none; }
+    .tag { display:inline-block; font-size:.68rem; font-weight:800; padding:1px 7px; border-radius:999px; background:#e2e8f0; color:#334155; margin-left:4px; }
     .modal-backdrop {
       position: fixed; inset: 0; background: rgba(15,23,42,0.55); display: none;
       align-items: center; justify-content: center; padding: 14px; z-index: 50;
@@ -208,7 +216,21 @@
               </div>
             </button>
             <div class="dropdown-divider"></div>
-            <button type="button" class="dropdown-item" onclick="exportBackup(); closeBackupMenu();">💾 Guardar backup (JSON)</button>
+            <button type="button" class="dropdown-item" onclick="closeBackupMenu(); exportBackup('save');">
+              <span>💾</span>
+              <div>
+                <div>Guardar backup en el dispositivo</div>
+                <div style="font-size:0.72rem;color:var(--muted);font-weight:500;">Eliges carpeta y nombre del archivo</div>
+              </div>
+            </button>
+            <div class="dropdown-divider"></div>
+            <button type="button" class="dropdown-item" onclick="closeBackupMenu(); exportBackup('share');">
+              <span>📤</span>
+              <div>
+                <div>Compartir / enviar backup</div>
+                <div style="font-size:0.72rem;color:var(--muted);font-weight:500;">Drive, correo, WhatsApp…</div>
+              </div>
+            </button>
             <div class="dropdown-divider"></div>
             <button type="button" class="dropdown-item" onclick="triggerImportBackup()">📂 Importar backup (JSON)</button>
           </div>
@@ -220,6 +242,7 @@
 
   <div class="container">
     <div class="stats-grid" id="statsGrid"></div>
+    <div id="reminderBanner"></div>
     <div class="filter-tabs" id="filterTabs"></div>
     <input type="search" class="search-bar" id="searchInput" placeholder="🔍 Buscar por matrícula, marca, modelo, mantenimiento o seguro..." oninput="render()" />
     <div id="vehiclesContainer"></div>
@@ -296,6 +319,26 @@
               <label>Mantenimiento por km (km antes)</label>
               <input type="number" id="cfgMaintKm" min="50" max="50000" step="50" required />
             </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>🧰 Recordatorios y copias</h3>
+          <div class="toggle-row">
+            <label for="cfgWatchKm">Recordar actualizar los kilómetros</label>
+            <input type="checkbox" id="cfgWatchKm" />
+          </div>
+          <div class="form-grid two">
+            <div><label>…si llevan más de (días)</label><input type="number" id="cfgKmDays" min="7" max="365" /></div>
+            <div><label>Recordar copia de seguridad si pasan (días)</label><input type="number" id="cfgBackupDays" min="7" max="365" /></div>
+          </div>
+          <div class="toggle-row">
+            <label for="cfgWatchBackup">Avisar cuando toque hacer una copia de seguridad</label>
+            <input type="checkbox" id="cfgWatchBackup" />
+          </div>
+          <div class="toggle-row">
+            <label for="cfgAutoBackup">Copia automática semanal en Documentos/MiGaraje/auto (solo app Android)</label>
+            <input type="checkbox" id="cfgAutoBackup" />
           </div>
         </div>
 
@@ -422,6 +465,8 @@
           <div><label>Modelo *</label><input id="vModel" required placeholder="León / MT-07" /></div>
           <div><label>Kilómetros</label><input id="vKm" type="number" placeholder="50000" /></div>
           <div><label>Bastidor (VIN)</label><input id="vVin" placeholder="17 caracteres" style="text-transform:uppercase" /></div>
+          <div><label>Aseguradora</label><input id="vInsCompany" placeholder="Mapfre, Mutua…" autocomplete="off" /></div>
+          <div><label>Teléfono de asistencia / siniestros</label><input id="vInsPhone" type="tel" placeholder="900 123 456" autocomplete="off" /></div>
           <div><label>Nº de póliza del seguro</label><input id="vInsPolicy" placeholder="Ej. 12345678-A" autocomplete="off" /></div>
           <div><label>Vencimiento Seguro</label><input id="vInsDate" type="date" /></div>
           <div><label>Próxima ITV</label><input id="vItvDate" type="date" /></div>
@@ -462,6 +507,77 @@
     </div>
   </div>
 
+  <!-- Modal Actualizar km -->
+  <div class="modal-backdrop" id="kmModal" onclick="if(event.target===this) closeModal('kmModal')">
+    <div class="modal">
+      <h2>🛣️ Actualizar kilómetros</h2>
+      <form onsubmit="saveKm(event)">
+        <input type="hidden" id="kmVehicleId" />
+        <div id="kmCurrentInfo" class="helper-text" style="margin-bottom:8px;"></div>
+        <label>Kilómetros actuales *</label>
+        <input id="kmNew" type="number" inputmode="numeric" min="0" required style="font-size:1.4rem;padding:14px;font-weight:800;" />
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('kmModal')">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Repostaje -->
+  <div class="modal-backdrop" id="fuelModal" onclick="if(event.target===this) closeModal('fuelModal')">
+    <div class="modal">
+      <h2>⛽ Registrar repostaje</h2>
+      <form onsubmit="saveFuel(event)">
+        <input type="hidden" id="fVehicleId" />
+        <div class="form-grid two">
+          <div><label>Fecha *</label><input id="fDate" type="date" required /></div>
+          <div><label>Kilómetros del cuentakilómetros *</label><input id="fKm" type="number" inputmode="numeric" min="0" required /></div>
+          <div><label>Litros *</label><input id="fLiters" type="number" inputmode="decimal" step="0.01" min="0.01" required oninput="updateFuelPrice()" /></div>
+          <div><label>Importe total (€) *</label><input id="fCost" type="number" inputmode="decimal" step="0.01" min="0" required oninput="updateFuelPrice()" /></div>
+        </div>
+        <div class="helper-text" id="fPriceHint" style="margin-top:6px;"></div>
+        <div class="toggle-row" style="margin-top:6px;">
+          <label for="fFull">Llené el depósito (necesario para calcular el consumo)</label>
+          <input type="checkbox" id="fFull" checked />
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('fuelModal')">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Documento -->
+  <div class="modal-backdrop" id="docModal" onclick="if(event.target===this) closeModal('docModal')">
+    <div class="modal">
+      <h2>📎 Añadir documento</h2>
+      <form onsubmit="saveDoc(event)">
+        <input type="hidden" id="dVehicleId" />
+        <div class="form-grid">
+          <div><label>Tipo de documento</label><select id="dCategory"></select></div>
+          <div><label>Archivo (foto o PDF) *</label><input id="dFile" type="file" accept="image/*,application/pdf" required onchange="onDocFileChosen()" /></div>
+          <div><label>Nombre (opcional)</label><input id="dName" placeholder="Ej. Póliza 2026" /></div>
+        </div>
+        <div class="helper-text" style="margin-top:6px;">Se guarda solo en este dispositivo. Las fotos se reducen automáticamente para ahorrar espacio.</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('docModal')">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="dSaveBtn">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Visor de imágenes -->
+  <div class="modal-backdrop" id="docViewModal" onclick="closeModal('docViewModal')">
+    <div class="modal" style="max-width:760px;padding:10px;text-align:center;">
+      <div id="docViewTitle" style="font-weight:800;margin:4px 0 8px;"></div>
+      <img id="docViewImg" alt="" style="width:100%;height:auto;max-height:75vh;object-fit:contain;border-radius:10px;background:#f1f5f9;" />
+      <div style="margin-top:10px;"><button type="button" class="btn btn-outline" onclick="closeModal('docViewModal')">Cerrar</button></div>
+    </div>
+  </div>
+
   <script>
     const STORAGE_KEY = 'mi_garaje_netlify_v12_data';
     const SETTINGS_KEY = 'mi_garaje_netlify_v12_settings';
@@ -480,7 +596,12 @@
       watchIns: true,
       watchItv: true,
       watchMaint: true,
-      onlyUrgentNotif: false
+      onlyUrgentNotif: false,
+      watchKm: true,
+      kmDays: 30,
+      watchBackup: true,
+      backupDays: 30,
+      autoBackup: true
     };
 
     const DEFAULT_DATA = [
@@ -634,6 +755,33 @@
         }
       });
 
+      if (settings.watchKm) {
+        const firstRun = lsGet(FIRST_RUN_KEY) || new Date().toISOString();
+        vehicles.forEach(v => {
+          const base = v.kmUpdatedAt ? new Date(v.kmUpdatedAt + 'T00:00:00').getTime() : new Date(firstRun).getTime();
+          const d = daysBetween(base, today);
+          if (d >= Number(settings.kmDays || 30)) {
+            out.push({
+              vehicleId: v.id, kind: 'km',
+              label: `Actualiza los km — ${v.brand} ${v.model} (${v.plate})`,
+              detail: `Última actualización hace ${d} días (${Number(v.km || 0).toLocaleString()} km)`,
+              expired: false, urgent: false, sortKey: 20
+            });
+          }
+        });
+      }
+      if (settings.watchBackup && vehicles.length) {
+        const last = Number(lsGet(BACKUP_KEY) || 0);
+        const base = last || new Date(lsGet(FIRST_RUN_KEY) || Date.now()).getTime();
+        const d = daysBetween(base, today);
+        if (d >= Number(settings.backupDays || 30)) {
+          out.push({
+            vehicleId: '', kind: 'backup', label: 'Copia de seguridad',
+            detail: last ? `Última copia hace ${d} días` : `Aún no has hecho ninguna copia (${d} días usando la app)`,
+            expired: false, urgent: false, sortKey: 30
+          });
+        }
+      }
       return out.sort((a, b) => a.sortKey - b.sortKey);
     }
 
@@ -885,6 +1033,11 @@
       document.getElementById('cfgWatchItv').checked = Boolean(settings.watchItv);
       document.getElementById('cfgWatchMaint').checked = Boolean(settings.watchMaint);
       document.getElementById('cfgOnlyUrgentNotif').checked = Boolean(settings.onlyUrgentNotif);
+      document.getElementById('cfgWatchKm').checked = Boolean(settings.watchKm);
+      document.getElementById('cfgKmDays').value = settings.kmDays ?? 30;
+      document.getElementById('cfgWatchBackup').checked = Boolean(settings.watchBackup);
+      document.getElementById('cfgBackupDays').value = settings.backupDays ?? 30;
+      document.getElementById('cfgAutoBackup').checked = Boolean(settings.autoBackup);
       refreshNotifPerm().then(updateNotifPermissionUI);
       updateScheduleCustomFields();
       document.getElementById('alertSettingsModal').classList.add('open');
@@ -904,7 +1057,12 @@
         watchIns: document.getElementById('cfgWatchIns').checked,
         watchItv: document.getElementById('cfgWatchItv').checked,
         watchMaint: document.getElementById('cfgWatchMaint').checked,
-        onlyUrgentNotif: document.getElementById('cfgOnlyUrgentNotif').checked
+        onlyUrgentNotif: document.getElementById('cfgOnlyUrgentNotif').checked,
+        watchKm: document.getElementById('cfgWatchKm').checked,
+        kmDays: Math.max(7, Number(document.getElementById('cfgKmDays').value || 30)),
+        watchBackup: document.getElementById('cfgWatchBackup').checked,
+        backupDays: Math.max(7, Number(document.getElementById('cfgBackupDays').value || 30)),
+        autoBackup: document.getElementById('cfgAutoBackup').checked
       };
       try { localStorage.removeItem(LAST_NOTIF_KEY + '_custom'); } catch {}
       persistSettings();
@@ -925,11 +1083,14 @@
       document.getElementById('alertsModalBody').innerHTML = list.length ? list.map(a =>
         `<div class="alert-item ${a.expired ? 'danger' : 'warn'}">
           <div>
-            <div style="font-weight:800;font-size:0.92rem;">${a.expired ? '🚨' : '⏳'} ${escapeHtml(a.label)}</div>
+            <div style="font-weight:800;font-size:0.92rem;">${a.kind === 'backup' ? '💾' : (a.kind === 'km' ? '🛣️' : (a.expired ? '🚨' : '⏳'))} ${escapeHtml(a.label)}</div>
             <div style="font-size:0.82rem;margin-top:3px;font-weight:700;color:${a.expired ? '#991b1b' : '#92400e'};">${escapeHtml(a.detail)}</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:5px;">
-            <button type="button" class="btn btn-outline btn-sm" onclick="goToVehicle('${escapeHtml(a.vehicleId)}')">Ver</button>
+            ${a.kind === 'backup'
+              ? `<button type="button" class="btn btn-primary btn-sm" onclick="closeModal('alertsModal'); exportBackup('save')">Guardar copia</button>`
+              : `<button type="button" class="btn btn-outline btn-sm" onclick="goToVehicle('${escapeHtml(a.vehicleId)}')">Ver</button>`}
+            ${a.kind === 'km' ? `<button type="button" class="btn btn-primary btn-sm" onclick="closeModal('alertsModal'); openKmModal('${escapeHtml(a.vehicleId)}')">Actualizar</button>` : ''}
             ${a.scheduleId ? `<button type="button" class="btn btn-primary btn-sm" onclick="completeSchedule('${escapeHtml(a.vehicleId)}', '${escapeHtml(a.scheduleId)}')">✓ Hecho</button>` : ''}
           </div>
         </div>`
@@ -1039,6 +1200,340 @@
         : 'Eliminar esta alerta puntual tras guardar el mantenimiento';
     }
 
+    // ====== UTILIDADES, COPIAS, KM, REPOSTAJES Y DOCUMENTOS ======
+    const BACKUP_KEY = 'mi_garaje_last_backup';
+    const AUTO_BACKUP_KEY = 'mi_garaje_last_auto_backup';
+    const FIRST_RUN_KEY = 'mi_garaje_first_run';
+    function lsGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+    function lsSet(k, v) { try { localStorage.setItem(k, v); } catch {} }
+    if (!lsGet(FIRST_RUN_KEY)) lsSet(FIRST_RUN_KEY, new Date().toISOString());
+    function todayStr() { return new Date().toISOString().slice(0, 10); }
+    function daysBetween(fromMs, toDate) {
+      const a = new Date(fromMs); a.setHours(0, 0, 0, 0);
+      const b = new Date(toDate); b.setHours(0, 0, 0, 0);
+      return Math.round((b - a) / 86400000);
+    }
+    function fmtSize(n) { n = Number(n || 0); return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+
+    function markBackupDone() { lsSet(BACKUP_KEY, String(Date.now())); render(); scheduleNativeSync(); }
+
+    function renderReminderBanner() {
+      const el = document.getElementById('reminderBanner');
+      if (!el) return;
+      const b = getAlerts().find(a => a.kind === 'backup');
+      el.innerHTML = b ? `<div class="reminder-banner"><span>💾 ${escapeHtml(b.detail)}. Guarda una copia para no perder tus datos.</span><button type="button" class="btn btn-primary btn-sm" onclick="exportBackup('save')">Guardar copia</button></div>` : '';
+    }
+
+    // Copia automática semanal (solo app Android). Si falla, se reintenta al abrir la app y el recordatorio sigue activo.
+    async function autoBackupIfDue() {
+      if (!NATIVE || !settings.autoBackup || !vehicles.length) return;
+      const last = Number(lsGet(AUTO_BACKUP_KEY) || 0);
+      if (last && Date.now() - last < 7 * 86400000) return;
+      try {
+        const { Filesystem } = Capacitor.Plugins;
+        try { await Filesystem.requestPermissions(); } catch {}
+        await Filesystem.writeFile({
+          path: `MiGaraje/auto/mi-garaje-auto_${todayStr()}.json`,
+          data: JSON.stringify({ exportedAt: new Date().toISOString(), settings, vehicles }, null, 2),
+          directory: 'DOCUMENTS', encoding: 'utf8', recursive: true
+        });
+        lsSet(AUTO_BACKUP_KEY, String(Date.now()));
+        markBackupDone();
+        try { // conservar solo las 4 últimas
+          const r = await Filesystem.readdir({ path: 'MiGaraje/auto', directory: 'DOCUMENTS' });
+          const names = (r.files || []).map(f => typeof f === 'string' ? f : f.name).filter(n => /^mi-garaje-auto_.*\.json$/.test(n)).sort();
+          for (const n of names.slice(0, Math.max(0, names.length - 4))) {
+            await Filesystem.deleteFile({ path: `MiGaraje/auto/${n}`, directory: 'DOCUMENTS' });
+          }
+        } catch {}
+      } catch (err) { console.warn('autoBackup', err); }
+    }
+
+    // ---- Kilómetros ----
+    function kmAgeText(v) {
+      const base = v.kmUpdatedAt ? new Date(v.kmUpdatedAt + 'T00:00:00').getTime() : new Date(lsGet(FIRST_RUN_KEY) || Date.now()).getTime();
+      const d = Math.max(0, daysBetween(base, new Date()));
+      const stale = settings.watchKm && d >= Number(settings.kmDays || 30);
+      const txt = d === 0 ? 'Actualizado hoy' : `Actualizado hace ${d} día${d === 1 ? '' : 's'}`;
+      return stale ? `<span style="color:#b45309;font-weight:700;">⚠️ ${txt}</span>` : txt;
+    }
+    function openKmModal(vId) {
+      const v = vehicles.find(x => x.id === vId);
+      if (!v) return;
+      document.getElementById('kmVehicleId').value = vId;
+      document.getElementById('kmCurrentInfo').textContent = `${v.brand} ${v.model} (${v.plate}) · ahora: ${Number(v.km || 0).toLocaleString()} km`;
+      document.getElementById('kmNew').value = v.km || '';
+      document.getElementById('kmModal').classList.add('open');
+      setTimeout(() => { const i = document.getElementById('kmNew'); i.focus(); i.select(); }, 80);
+    }
+    function saveKm(e) {
+      e.preventDefault();
+      const vId = document.getElementById('kmVehicleId').value;
+      const km = Number(document.getElementById('kmNew').value);
+      const v = vehicles.find(x => x.id === vId);
+      if (!v || !Number.isFinite(km) || km < 0) return;
+      if (km < Number(v.km || 0) && !confirm(`Los km nuevos (${km.toLocaleString()}) son menores que los actuales (${Number(v.km).toLocaleString()}). ¿Guardar igualmente?`)) return;
+      vehicles = vehicles.map(x => x.id === vId ? { ...x, km, kmUpdatedAt: todayStr() } : x);
+      persistVehicles(); closeModal('kmModal'); render();
+    }
+
+    // ---- Repostajes ----
+    function fuelStats(v) {
+      const logs = (v.fuelLogs || []).slice().sort((a, b) => Number(a.km) - Number(b.km) || (a.date || '').localeCompare(b.date || ''));
+      const totalCost = logs.reduce((s, f) => s + Number(f.cost || 0), 0);
+      let dist = 0, liters = 0, cost = 0, segments = 0, lastL100 = null, prevFull = -1;
+      logs.forEach((f, i) => {
+        if (!f.full) return;
+        if (prevFull >= 0) {
+          const d = Number(f.km) - Number(logs[prevFull].km);
+          if (d > 0) {
+            let l = 0, c = 0;
+            for (let j = prevFull + 1; j <= i; j++) { l += Number(logs[j].liters || 0); c += Number(logs[j].cost || 0); }
+            dist += d; liters += l; cost += c; segments++; lastL100 = l / d * 100;
+          }
+        }
+        prevFull = i;
+      });
+      return { totalCost, avgL100: dist > 0 ? liters / dist * 100 : null, costPerKm: dist > 0 ? cost / dist : null, lastL100, segments };
+    }
+    function fuelHtml(v) {
+      const logs = (v.fuelLogs || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || Number(b.km) - Number(a.km));
+      const st = fuelStats(v);
+      const chips = [];
+      if (st.avgL100 != null) chips.push(`<span class="chip">Consumo medio: ${st.avgL100.toFixed(1)} l/100 km</span>`);
+      if (st.lastL100 != null && st.segments > 1) chips.push(`<span class="chip">Último: ${st.lastL100.toFixed(1)} l/100 km</span>`);
+      if (st.costPerKm != null) chips.push(`<span class="chip">${st.costPerKm.toFixed(3)} €/km</span>`);
+      if (logs.length) chips.push(`<span class="chip">Gasto combustible: ${st.totalCost.toFixed(0)} €</span>`);
+      const row = f => `<div class="fuel-row">
+          <div><strong>${escapeHtml(f.date)}</strong> · ${Number(f.km).toLocaleString()} km<span class="tag">${f.full ? 'lleno' : 'parcial'}</span>
+            <div class="sched-meta">${Number(f.liters).toFixed(2)} l · ${Number(f.cost).toFixed(2)} € (${(Number(f.cost) / Number(f.liters || 1)).toFixed(3)} €/l)</div></div>
+          <button type="button" class="btn btn-danger btn-sm" onclick="deleteFuel('${v.id}','${f.id}')">🗑</button>
+        </div>`;
+      const first = logs.slice(0, 5).map(row).join('');
+      const rest = logs.slice(5);
+      return `<div class="sect-box">
+        <div class="sect-head"><strong style="font-size:0.88rem;">⛽ Repostajes (${logs.length})</strong>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openFuelModal('${v.id}')">+ Repostaje</button></div>
+        ${chips.length ? `<div class="chips">${chips.join('')}</div>` : ''}
+        ${logs.length && st.avgL100 == null ? '<div class="helper-text" style="margin-bottom:6px;">Para calcular el consumo hacen falta al menos 2 repostajes con el depósito lleno.</div>' : ''}
+        ${first || '<div style="font-size:0.82rem;color:var(--muted);">Sin repostajes. Pulsa "+ Repostaje".</div>'}
+        ${rest.length ? `<details><summary style="cursor:pointer;font-size:0.82rem;font-weight:700;margin-bottom:6px;">Ver anteriores (${rest.length})</summary>${rest.map(row).join('')}</details>` : ''}
+      </div>`;
+    }
+    function updateFuelPrice() {
+      const l = Number(document.getElementById('fLiters').value), c = Number(document.getElementById('fCost').value);
+      document.getElementById('fPriceHint').textContent = l > 0 && c > 0 ? `Precio: ${(c / l).toFixed(3)} €/l` : '';
+    }
+    function openFuelModal(vId) {
+      const v = vehicles.find(x => x.id === vId);
+      if (!v) return;
+      document.getElementById('fVehicleId').value = vId;
+      document.getElementById('fDate').value = todayStr();
+      document.getElementById('fKm').value = v.km || '';
+      document.getElementById('fLiters').value = '';
+      document.getElementById('fCost').value = '';
+      document.getElementById('fFull').checked = true;
+      updateFuelPrice();
+      document.getElementById('fuelModal').classList.add('open');
+    }
+    function saveFuel(e) {
+      e.preventDefault();
+      const vId = document.getElementById('fVehicleId').value;
+      const f = {
+        id: 'f_' + Date.now(),
+        date: document.getElementById('fDate').value,
+        km: Number(document.getElementById('fKm').value),
+        liters: Number(document.getElementById('fLiters').value),
+        cost: Number(document.getElementById('fCost').value),
+        full: document.getElementById('fFull').checked
+      };
+      if (!(f.liters > 0) || !(f.cost >= 0) || !(f.km >= 0)) { alert('Revisa los datos del repostaje.'); return; }
+      vehicles = vehicles.map(v => v.id !== vId ? v : {
+        ...v,
+        km: Math.max(Number(v.km || 0), f.km),
+        kmUpdatedAt: f.km > Number(v.km || 0) ? todayStr() : (v.kmUpdatedAt || ''),
+        fuelLogs: [f, ...(v.fuelLogs || [])]
+      });
+      persistVehicles(); closeModal('fuelModal'); render();
+    }
+    function deleteFuel(vId, fId) {
+      if (!confirm('¿Eliminar este repostaje?')) return;
+      vehicles = vehicles.map(v => v.id !== vId ? v : { ...v, fuelLogs: (v.fuelLogs || []).filter(f => f.id !== fId) });
+      persistVehicles(); render();
+    }
+
+    // ---- Documentos (fotos/PDF) ----
+    const DOC_CATS = ['Póliza de seguro', 'Ficha técnica', 'ITV', 'Permiso de circulación', 'Factura / ticket', 'Otro'];
+    const docUrlCache = new Map();
+    function idbOpen() {
+      return new Promise((res, rej) => {
+        const r = indexedDB.open('mi_garaje_docs', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('files');
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+    }
+    async function idbOp(mode, fn) {
+      const db = await idbOpen();
+      return new Promise((res, rej) => {
+        const tx = db.transaction('files', mode);
+        const rq = fn(tx.objectStore('files'));
+        tx.oncomplete = () => res(rq && rq.result);
+        tx.onerror = () => rej(tx.error);
+      });
+    }
+    function blobToBase64(blob) {
+      return new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(String(r.result).split(',')[1] || '');
+        r.onerror = () => rej(r.error);
+        r.readAsDataURL(blob);
+      });
+    }
+    const DocStore = {
+      async save(id, blob, fileName) {
+        if (NATIVE) {
+          const path = `docs/${id}_${String(fileName).replace(/[^\w.\-]+/g, '_')}`;
+          await Capacitor.Plugins.Filesystem.writeFile({ path, data: await blobToBase64(blob), directory: 'DATA', recursive: true });
+          return { store: 'fs', path };
+        }
+        await idbOp('readwrite', st => st.put(blob, id));
+        return { store: 'idb', path: id };
+      },
+      async url(doc) {
+        if (docUrlCache.has(doc.id)) return docUrlCache.get(doc.id);
+        let u;
+        if (doc.store === 'fs') {
+          const { uri } = await Capacitor.Plugins.Filesystem.getUri({ path: doc.path, directory: 'DATA' });
+          u = Capacitor.convertFileSrc(uri);
+        } else {
+          const blob = await idbOp('readonly', st => st.get(doc.id));
+          if (!blob) throw new Error('missing');
+          u = URL.createObjectURL(blob);
+        }
+        docUrlCache.set(doc.id, u);
+        return u;
+      },
+      async dataUrl(doc) { // alternativa si la URL directa falla
+        if (doc.store !== 'fs') throw new Error('n/a');
+        const r = await Capacitor.Plugins.Filesystem.readFile({ path: doc.path, directory: 'DATA' });
+        return `data:${doc.mime};base64,${r.data}`;
+      },
+      async remove(doc) {
+        docUrlCache.delete(doc.id);
+        try {
+          if (doc.store === 'fs') await Capacitor.Plugins.Filesystem.deleteFile({ path: doc.path, directory: 'DATA' });
+          else await idbOp('readwrite', st => st.delete(doc.id));
+        } catch {}
+      }
+    };
+    async function compressImage(file, max = 1800, q = 0.82) {
+      if (!file.type.startsWith('image/') || /gif|svg/.test(file.type)) return file;
+      try {
+        const bmp = await createImageBitmap(file);
+        const s = Math.min(1, max / Math.max(bmp.width, bmp.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+        c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+        const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', q));
+        return blob && blob.size < file.size ? blob : file;
+      } catch { return file; }
+    }
+    function docsHtml(v) {
+      const docs = v.docs || [];
+      return `<div class="sect-box">
+        <div class="sect-head"><strong style="font-size:0.88rem;">📎 Documentos (${docs.length})</strong>
+          <button type="button" class="btn btn-outline btn-sm" style="border-color:var(--primary);color:var(--primary);" onclick="openDocModal('${v.id}')">+ Añadir</button></div>
+        ${docs.map(d => `<div class="doc-row">
+          <div style="display:flex;gap:10px;align-items:center;min-width:0;">
+            ${String(d.mime).startsWith('image/') ? `<img class="doc-thumb" data-doc="${escapeHtml(d.id)}" data-v="${escapeHtml(v.id)}" alt="" />` : '<div class="doc-thumb">📄</div>'}
+            <div style="min-width:0;"><div style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(d.name)}</div>
+              <div class="sched-meta">${escapeHtml(d.category)} · ${escapeHtml(d.addedAt)} · ${fmtSize(d.size)}</div></div>
+          </div>
+          <div style="display:flex;gap:6px;flex:none;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="viewDoc('${v.id}','${d.id}')">Ver</button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="deleteDoc('${v.id}','${d.id}')">🗑</button>
+          </div></div>`).join('') || '<div style="font-size:0.82rem;color:var(--muted);">Sin documentos. Añade la póliza, la ficha técnica, la ITV…</div>'}
+        ${docs.length ? '<div class="helper-text">Los archivos se guardan solo en este dispositivo: la copia de seguridad (JSON) incluye la lista, pero no los archivos.</div>' : ''}
+      </div>`;
+    }
+    async function thumbFail(img, d) {
+      img.onerror = null;
+      try { img.src = await DocStore.dataUrl(d); }
+      catch { const x = document.createElement('div'); x.className = 'doc-thumb'; x.textContent = '⚠️'; img.replaceWith(x); }
+    }
+    function hydrateDocThumbs() {
+      document.querySelectorAll('img.doc-thumb[data-doc]').forEach(img => {
+        const v = vehicles.find(x => x.id === img.dataset.v);
+        const d = v && (v.docs || []).find(x => x.id === img.dataset.doc);
+        if (!d) return;
+        img.onerror = () => thumbFail(img, d);
+        DocStore.url(d).then(u => { img.src = u; }).catch(() => thumbFail(img, d));
+      });
+    }
+    function openDocModal(vId) {
+      document.getElementById('dVehicleId').value = vId;
+      document.getElementById('dCategory').innerHTML = DOC_CATS.map(c => `<option>${c}</option>`).join('');
+      document.getElementById('dFile').value = '';
+      document.getElementById('dName').value = '';
+      document.getElementById('docModal').classList.add('open');
+    }
+    function onDocFileChosen() {
+      const f = document.getElementById('dFile').files[0];
+      const n = document.getElementById('dName');
+      if (f && !n.value) n.placeholder = f.name;
+    }
+    async function saveDoc(e) {
+      e.preventDefault();
+      const vId = document.getElementById('dVehicleId').value;
+      const file = document.getElementById('dFile').files[0];
+      if (!file) { alert('Elige un archivo.'); return; }
+      if (file.size > 25 * 1024 * 1024) { alert('El archivo supera los 25 MB.'); return; }
+      const btn = document.getElementById('dSaveBtn');
+      btn.disabled = true; btn.textContent = 'Guardando…';
+      try {
+        let blob = file, mime = file.type || 'application/octet-stream';
+        if (mime.startsWith('image/')) { blob = await compressImage(file); mime = blob.type || mime; }
+        const id = 'd_' + Date.now();
+        const stored = await DocStore.save(id, blob, file.name);
+        const doc = { id, name: document.getElementById('dName').value.trim() || file.name, category: document.getElementById('dCategory').value, mime, size: blob.size, addedAt: todayStr(), ...stored };
+        vehicles = vehicles.map(v => v.id !== vId ? v : { ...v, docs: [doc, ...(v.docs || [])] });
+        persistVehicles(); closeModal('docModal'); render();
+      } catch (err) {
+        console.warn('saveDoc', err);
+        alert('No se pudo guardar el documento.');
+      } finally { btn.disabled = false; btn.textContent = 'Guardar'; }
+    }
+    async function viewDoc(vId, dId) {
+      const v = vehicles.find(x => x.id === vId);
+      const d = v && (v.docs || []).find(x => x.id === dId);
+      if (!d) return;
+      try {
+        if (String(d.mime).startsWith('image/')) {
+          const img = document.getElementById('docViewImg');
+          img.onerror = async () => { img.onerror = null; try { img.src = await DocStore.dataUrl(d); } catch {} };
+          img.src = await DocStore.url(d);
+          document.getElementById('docViewTitle').textContent = d.name;
+          document.getElementById('docViewModal').classList.add('open');
+        } else if (NATIVE) {
+          const { uri } = await Capacitor.Plugins.Filesystem.getUri({ path: d.path, directory: 'DATA' });
+          await Capacitor.Plugins.Share.share({ title: d.name, url: uri, dialogTitle: 'Abrir documento con…' });
+        } else {
+          window.open(await DocStore.url(d), '_blank');
+        }
+      } catch (err) {
+        if (!String(err && err.message || err).toLowerCase().includes('cancel')) alert('El archivo no está disponible en este dispositivo (por ejemplo, si importaste una copia de otro móvil).');
+      }
+    }
+    async function deleteDoc(vId, dId) {
+      if (!confirm('¿Eliminar este documento?')) return;
+      const v = vehicles.find(x => x.id === vId);
+      const d = v && (v.docs || []).find(x => x.id === dId);
+      if (d) await DocStore.remove(d);
+      vehicles = vehicles.map(x => x.id !== vId ? x : { ...x, docs: (x.docs || []).filter(y => y.id !== dId) });
+      persistVehicles(); render();
+    }
+
     function badgeDate(d, lbl, th) {
       if (!d) return `<span class="badge badge-neutral">${lbl}: Sin fecha</span>`;
       const today = new Date(); today.setHours(0,0,0,0);
@@ -1053,13 +1548,16 @@
       const alerts = getAlerts().length;
       const coches = vehicles.filter(v => v.type === 'coche').length;
       const motos = vehicles.filter(v => v.type === 'moto').length;
-      let spent = 0, revCount = 0;
-      vehicles.forEach(v => (v.maintenances || []).forEach(m => { revCount++; spent += Number(m.cost || 0); }));
+      let spent = 0, revCount = 0, fuelSpent = 0;
+      vehicles.forEach(v => {
+        (v.maintenances || []).forEach(m => { revCount++; spent += Number(m.cost || 0); });
+        (v.fuelLogs || []).forEach(f => { fuelSpent += Number(f.cost || 0); });
+      });
 
       document.getElementById('statsGrid').innerHTML = `
         <div class="stat-card"><div class="stat-label">Flota</div><div class="stat-value">${vehicles.length}</div><div class="stat-hint">🚗 ${coches} · 🏍️ ${motos}</div></div>
         <div class="stat-card"><div class="stat-label">Revisiones</div><div class="stat-value">${revCount}</div></div>
-        <div class="stat-card"><div class="stat-label">Gasto</div><div class="stat-value">${spent.toFixed(0)} €</div></div>
+        <div class="stat-card"><div class="stat-label">Gasto</div><div class="stat-value">${(spent + fuelSpent).toFixed(0)} €</div><div class="stat-hint" style="color:var(--muted);">🔧 ${spent.toFixed(0)} · ⛽ ${fuelSpent.toFixed(0)}</div></div>
         <div class="stat-card clickable" onclick="openAlertsModal()"><div class="stat-label">Alertas ${settings.notifEnabled ? '🔔' : '🔕'}</div><div class="stat-value" style="color:${alerts?'#dc2626':'#16a34a'}">${alerts}</div><div class="stat-hint">Ver / Programar</div></div>
       `;
 
@@ -1100,7 +1598,11 @@
             <div>
               <span class="type-pill ${v.type === 'moto' ? 'moto' : 'coche'}">${v.type === 'moto' ? '🏍️ Moto' : '🚗 Coche'}</span>
               <div style="font-size:1.1rem;font-weight:800;margin-top:4px;">${escapeHtml(v.brand)} ${escapeHtml(v.model)}</div>
-              <div style="font-size:0.84rem;color:var(--muted);">${Number(v.km || 0).toLocaleString()} km</div>
+              <div style="font-size:0.84rem;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span>${Number(v.km || 0).toLocaleString()} km</span>
+                <button type="button" class="btn btn-outline btn-sm" onclick="openKmModal('${v.id}')">🛣️ Actualizar km</button>
+              </div>
+              <div class="sched-meta">${kmAgeText(v)}</div>
             </div>
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <div class="plate"><span class="plate-eu"><small>★★★</small>E</span><span class="plate-num">${escapeHtml(v.plate)}</span></div>
@@ -1113,7 +1615,10 @@
             ${badgeDate(v.itvDate, 'ITV', Number(settings.itvDays || 30))}
           </div>
           <div class="vin-box"><span><strong>VIN:</strong> ${escapeHtml(v.vin || 'N/D')}</span></div>
-          <div class="vin-box" style="margin-top:6px;"><span><strong>🛡️ Nº póliza:</strong> ${escapeHtml(v.insPolicy || 'N/D')}</span></div>
+          <div class="vin-box" style="margin-top:6px;">
+            <span><strong>🛡️ ${escapeHtml(v.insCompany || 'Seguro')}</strong> · Nº póliza: ${escapeHtml(v.insPolicy || 'N/D')}</span>
+            ${v.insPhone ? `<a class="btn btn-outline btn-sm" href="tel:${escapeHtml(String(v.insPhone).replace(/[^\d+]/g, ''))}" style="text-decoration:none;">📞 Asistencia</a>` : ''}
+          </div>
 
           <div class="scheduler-box">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -1130,9 +1635,13 @@
             </div>
             ${(v.maintenances||[]).map(m => `<div class="maint-item"><div class="maint-top"><span>${escapeHtml(m.date)} · ${escapeHtml(m.title)}</span><span>${Number(m.cost||0).toFixed(2)} €</span></div>${m.notes?`<div style="font-size:0.8rem;color:var(--muted);margin-top:2px;">${escapeHtml(m.notes)}</div>`:''}</div>`).join('') || '<div style="font-size:0.82rem;color:var(--muted);">Sin registros.</div>'}
           </div>
+          ${fuelHtml(v)}
+          ${docsHtml(v)}
         </div>
       `;
       }).join('') || '<div class="stat-card" style="text-align:center;padding:24px;">Sin vehículos que mostrar.</div>';
+      hydrateDocThumbs();
+      renderReminderBanner();
     }
 
     function openVehicleModal(id = '') {
@@ -1145,6 +1654,8 @@
       document.getElementById('vModel').value = v ? v.model : '';
       document.getElementById('vKm').value = v ? v.km : '';
       document.getElementById('vVin').value = v ? v.vin : '';
+      document.getElementById('vInsCompany').value = v ? (v.insCompany || '') : '';
+      document.getElementById('vInsPhone').value = v ? (v.insPhone || '') : '';
       document.getElementById('vInsPolicy').value = v ? (v.insPolicy || '') : '';
       document.getElementById('vInsDate').value = v ? v.insDate : '';
       document.getElementById('vItvDate').value = v ? v.itvDate : '';
@@ -1163,11 +1674,16 @@
         model: document.getElementById('vModel').value.trim(),
         km: Number(document.getElementById('vKm').value || 0),
         vin: document.getElementById('vVin').value.trim().toUpperCase(),
+        insCompany: document.getElementById('vInsCompany').value.trim(),
+        insPhone: document.getElementById('vInsPhone').value.trim(),
         insPolicy: document.getElementById('vInsPolicy').value.trim(),
         insDate: document.getElementById('vInsDate').value,
         itvDate: document.getElementById('vItvDate').value,
+        kmUpdatedAt: old && Number(old.km || 0) === Number(document.getElementById('vKm').value || 0) ? (old.kmUpdatedAt || '') : todayStr(),
         schedules: old ? (old.schedules || []) : [],
-        maintenances: old ? (old.maintenances || []) : []
+        maintenances: old ? (old.maintenances || []) : [],
+        fuelLogs: old ? (old.fuelLogs || []) : [],
+        docs: old ? (old.docs || []) : []
       };
       vehicles = id ? vehicles.map(x => x.id === id ? item : x) : [item, ...vehicles];
       persistVehicles(); closeModal('vehicleModal'); render();
@@ -1175,6 +1691,8 @@
 
     function deleteVehicle(id) {
       if (!confirm('¿Eliminar este vehículo?')) return;
+      const gone = vehicles.find(x => x.id === id);
+      if (gone) (gone.docs || []).forEach(d => DocStore.remove(d));
       vehicles = vehicles.filter(x => x.id !== id);
       persistVehicles(); render();
     }
@@ -1233,6 +1751,7 @@
         return {
           ...v,
           km: Math.max(Number(v.km || 0), km),
+          kmUpdatedAt: km > Number(v.km || 0) ? todayStr() : (v.kmUpdatedAt || ''),
           schedules,
           maintenances: [m, ...(v.maintenances || [])]
         };
@@ -1242,24 +1761,62 @@
 
     function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-    async function exportBackup() {
+    // mode 'save': guarda el archivo en el dispositivo (Documentos/MiGaraje). mode 'share': menú de compartir.
+    async function exportBackup(mode = 'save') {
       const json = JSON.stringify({ exportedAt: new Date().toISOString(), settings, vehicles }, null, 2);
       const fileName = `mi-garaje-backup_${new Date().toISOString().slice(0, 10)}.json`;
       if (NATIVE) {
+        const { Filesystem, Share } = Capacitor.Plugins;
+        if (mode === 'save') {
+          try {
+            const SaveFile = Capacitor.Plugins.SaveFile;
+            if (!SaveFile) throw new Error('no-plugin');
+            await SaveFile.saveAs({ fileName, data: json, mimeType: 'application/json' });
+            markBackupDone();
+            alert('✅ Copia guardada correctamente.');
+            return;
+          } catch (err) {
+            if (String(err && err.message || err).toLowerCase().includes('cancel')) return;
+            try { // alternativa: carpeta Documentos
+              try { await Filesystem.requestPermissions(); } catch {}
+              await Filesystem.writeFile({ path: `MiGaraje/${fileName}`, data: json, directory: 'DOCUMENTS', encoding: 'utf8', recursive: true });
+              markBackupDone();
+              alert(`✅ Copia guardada en el dispositivo:\nDocumentos/MiGaraje/${fileName}`);
+              return;
+            } catch {}
+            if (confirm('No se pudo guardar directamente en el dispositivo.\n¿Quieres usar el menú de compartir para guardarla?')) return exportBackup('share');
+            return;
+          }
+        }
         try {
-          const { Filesystem, Share } = Capacitor.Plugins;
           const res = await Filesystem.writeFile({ path: fileName, data: json, directory: 'CACHE', encoding: 'utf8' });
           await Share.share({ title: 'Copia de Mi Garaje', url: res.uri, dialogTitle: 'Guardar o enviar copia' });
+          markBackupDone();
         } catch (err) {
           if (!String(err && err.message || err).toLowerCase().includes('cancel')) alert('No se pudo exportar la copia.');
         }
         return;
       }
       const blob = new Blob([json], { type: 'application/json' });
+      if (mode === 'save' && window.showSaveFilePicker) {
+        try {
+          const fh = await showSaveFilePicker({ suggestedName: fileName, types: [{ description: 'Copia de Mi Garaje', accept: { 'application/json': ['.json'] } }] });
+          const w = await fh.createWritable(); await w.write(blob); await w.close();
+          markBackupDone();
+          return;
+        } catch (err) { if (err && err.name === 'AbortError') return; }
+      }
+      if (mode === 'share' && navigator.canShare) {
+        try {
+          const f = new File([blob], fileName, { type: 'application/json' });
+          if (navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: 'Copia de Mi Garaje' }); markBackupDone(); return; }
+        } catch {}
+      }
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = fileName;
       a.click();
+      markBackupDone();
     }
 
     function importBackup(e) {
@@ -1306,6 +1863,7 @@
     refreshNotifPerm().then(() => {
       if (NATIVE) {
         syncNativeSchedule();
+        autoBackupIfDue();
         // Frecuencia "cada vez que abras la app": aviso inmediato al abrir
         if (settings.notifFrequency === 'always') setTimeout(() => triggerAlertsNotificationNow(false), 1500);
         document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleNativeSync(); });
