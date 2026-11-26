@@ -20,6 +20,12 @@ jobs:
         run: |
           npx cap add android
           npx cap sync android
+      - name: Aplicar iconos y pantalla de inicio
+        run: |
+          cp -r android-res/. android/app/src/main/res/
+          find android/app/src/main/res -name 'splash.png' -exec cp assets/splash-android.png {} \;
+          echo "Iconos aplicados:"
+          ls android/app/src/main/res/mipmap-xxxhdpi android/app/src/main/res/mipmap-anydpi-v26
       - name: Compilar APK
         working-directory: android
         run: ./gradlew assembleDebug
